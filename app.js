@@ -8,7 +8,7 @@ const passport = require('passport');
 const {exec} = require('child_process');
 const LocalStrategy = require('passport-local').Strategy;
 const crypto = require('crypto');
-const adb = require('adbkit');
+const adb = require('adbkit'); 
 
 const client = adb.createClient();
 const disconnectDevices = (req, res, next) => {
@@ -296,14 +296,95 @@ exec(`adb connect ${ipaddress}:${port}`,(error, stdout,stderr)=>{
     res.send(`Pairing & Connection successful <a href='/homepage'>home</a>`);
   })
 })
-
-
-
-  // .then(res.redirect('/'))
-  // .then(res.send('paired successfully!'))
-  // .catch(err=>{console.log(err)})
 });
 
+app.get('/screenmirror',(req,res)=>{
+
+  exec(`adb devices`,(error,stdout,stderr)=>{
+    //error handling
+    if (error) {
+      console.error(`Error: ${error.message}`);
+      return res.status(500).send('Error occurred');
+    }
+    if (stderr) {
+      console.error(`ADB Error: ${stderr}`);
+      return res.status(500).send('ADB Error occurred');
+    }
+  
+    //showing the devices
+    const devices= stdout.split('\n').slice(1).filter(line => line.trim() !== '').map(line => {
+      const [device, state] = line.trim().split('\t');
+      return { device, state };
+    });
+     res.render('screenmirror',{devices});
+  }) 
+
+app.post('/screenmirror',(req,res)=>{
+  
+  // res.send('post request of screen mirror')
+   const mirrorDevice = req.body.deviceSelect;
+  
+  //scrcpy code
+
+  exec(`scrcpy -s ${mirrorDevice}`,(error, stdout, stderr)=>{
+    if(error){
+      res.send(`Error: ${error.message}`);
+    }
+    if (stderr) {
+      res.send(`scrcpy Error: ${stderr}`);
+    }
+
+    //output
+    console.log(stdout);
+  })
+
+  // console.log(mirrorDevice);
+  
+})
+});
+
+app.get('/deviceDetails',(req,res)=>{
+
+  exec(`adb devices`,(error,stdout,stderr)=>{
+    //error handling
+    if (error) {
+      console.error(`Error: ${error.message}`);
+      return res.status(500).send('Error occurred');
+    }
+    if (stderr) {
+      console.error(`ADB Error: ${stderr}`);
+      return res.status(500).send('ADB Error occurred');
+    }
+  
+    //showing the devices
+    const devices= stdout.split('\n').slice(1).filter(line => line.trim() !== '').map(line => {
+      const [device, state] = line.trim().split('\t');
+      return { device, state };
+    });
+
+     res.render('deviceDetails',{devices});
+  }) 
+})
+app.post('/deviceDetails',(req,res)=>{
+  
+   
+  const detailsDevice = req.body.deviceDetails;
+ 
+ exec(`adb -s ${detailsDevice} shell dumpsys battery`, (error, stdout, stderr) => {
+   if (error) {
+     res.status(500).send(`Error: ${error.message}`);
+     return;
+   }
+   
+   const batteryInfo = stdout.split('\n').find(line => line.includes('level'));
+   
+     const batteryPercentage = batteryInfo.match(/\d+/)[0];
+     // res.send(`Battery Percentage: ${batteryPercentage}%`);
+     console.log(batteryPercentage);
+   
+ });
+ res.render('showDeviceDetails',{batteryPercentage});
+});
 
 
 //scrcpy
